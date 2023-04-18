@@ -1,0 +1,27 @@
+{
+    "name": "xudid/container",
+    "description": "A PSR11 Container Interface implementation",
+    "type": "library",
+    "require": {
+        "psr/container": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.1"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Xudid\\Container\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Didier Moindreau",
+            "email": "dmoindreau@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "scripts": {
+        "test" : "php vendor/bin/phpunit -c phpunit.xml"
+    }
+}
