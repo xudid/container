@@ -12,12 +12,21 @@ class Container implements ContainerInterface
 {
     private array $values = [];
     private array $singleton = [];
+    private array $instanciableClassForInterface = [];
+    private Weaver $weaver;
+
+    public function __construct()
+    {
+        $this->weaver = new Weaver($this);
+        $this->set(Weaver::class, $this->weaver);
+    }
+
 
     public function get(string $id): mixed
     {
         try {
             if ($this->canAutoWire($id)) {
-                $return = $this->autoWire($id);
+                $return = $this->weaver->make($id);
 
                 if ($this->hasSingleton($id)) {
                     $this->set($id, $return);
@@ -37,10 +46,10 @@ class Container implements ContainerInterface
 
             return $value;
         } catch (Exception $ex) {
-           if (get_class($ex) == ReflectionException::class) {
-               throw new ContainerResolvException();
-           }
-           throw $ex;
+            if (get_class($ex) == ReflectionException::class) {
+                throw new ContainerResolvException();
+            }
+            throw $ex;
         }
     }
 
@@ -81,14 +90,10 @@ class Container implements ContainerInterface
         return !$this->hasValue($id) && class_exists($id);
     }
 
-    private function autoWire($id)
+    private function canInstantiate($id): bool
     {
         $reflection = new ReflectionClass($id);
-        if (!$reflection->isInstantiable()) {
-            throw new ContainerResolvException("Can't resolve not instantiable class");
-        }
-
-        return $this->getInstance($id);
+        return $reflection->isInstantiable();
     }
 
     public function set(string $id, mixed $value)
@@ -101,44 +106,5 @@ class Container implements ContainerInterface
     {
         $this->singleton[$id] = $value;
         return $this;
-    }
-
-    private function getInstance($id)
-    {
-        $reflection = new ReflectionClass($id);
-        $constructor = $reflection->getConstructor();
-        if ($reflection->hasMethod('__construct')) {
-            $args = $this->getArguments($constructor);
-            if ($args) {
-                return $reflection->newInstanceArgs($args);
-            }
-        }
-        return $reflection->newInstance();
-    }
-
-    private function getArguments(?\ReflectionMethod $method): array
-    {
-        $args = [];
-        foreach ($method->getParameters() as $parameter) {
-            $args[] = $this->getArgument($parameter);
-        }
-
-        return $args;
-    }
-
-
-    private function getArgument(ReflectionParameter $parameter): mixed
-    {
-        if (
-            $parameter->hasType()
-            && class_exists($parameter->getType()->getName())
-        ) {
-            $arg = $this->get($parameter->getType()->getName());
-            return $arg;
-        } elseif($parameter->isDefaultValueAvailable()) {
-            return $parameter->getDefaultValue();
-        } else {
-            throw new AutoWireException("Can't auto-wire parameter without type and default value");
-        }
     }
 }

@@ -6,7 +6,7 @@ use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionParameter;
 
-Class AutoWire
+Class Weaver
 {
     protected array $instanciableClassForInterface = [];
     private ContainerInterface $container;
@@ -27,12 +27,12 @@ Class AutoWire
     }
 
 
-    public function autoWire($class)
+    public function make($class, $arguments = [])
     {
         $reflection = new ReflectionClass($class);
         $constructor = $reflection->getConstructor();
         if ($reflection->hasMethod('__construct')) {
-            $args = $this->getArguments($constructor);
+            $args = $this->getArguments($constructor, $arguments);
             if ($args) {
                 return $reflection->newInstanceArgs($args);
             }
@@ -40,22 +40,26 @@ Class AutoWire
         return $reflection->newInstance();
     }
 
-    protected function getArguments(?\ReflectionMethod $method): array
+    protected function getArguments(?\ReflectionMethod $method, $arguments): array
     {
         $args = [];
         foreach ($method->getParameters() as $parameter) {
-            $args[] = $this->getArgument($parameter);
+            $args[] = $this->getArgument($parameter, $arguments);
         }
 
         return $args;
     }
 
-    protected function getArgument(ReflectionParameter $parameter): mixed
+    protected function getArgument(ReflectionParameter $parameter, $arguments): mixed
     {
         if ($parameter->hasType()) {
             $parameterName = $parameter->getType()->getName();
         } else {
             $parameterName = '';
+        }
+
+        if ($parameterName && array_key_exists($parameterName, $arguments)) {
+            return $arguments[$parameterName];
         }
 
         if ($parameterName && $this->has($parameterName)) {
@@ -73,7 +77,7 @@ Class AutoWire
         } elseif ($parameter->isDefaultValueAvailable()) {
             return $parameter->getDefaultValue();
         } else {
-            throw new AutoWireException("Can't auto-wire parameter without type and default value");
+            throw new AutoWireException("Can't auto-wire parameter without type and default value : " . $parameter->name);
         }
     }
 
@@ -102,7 +106,10 @@ Class AutoWire
     private function canInstantiate($id): bool
     {
         $reflection = new ReflectionClass($id);
-        return $reflection->isInstantiable();
+        if (!$reflection->isUserDefined()) {
+            return false;
+        }
 
+        return $reflection->isInstantiable();
     }
 }
